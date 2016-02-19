@@ -22,7 +22,7 @@ There are four main methods in this package:
 
     func Render(data string, context ...interface{}) string
     
-    func RenderFile(filename string, context ...interface{}) string
+    func RenderFile(filename string, context ...interface{}) (string, error)
     
     func ParseString(data string) (*Template, os.Error)
     

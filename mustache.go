@@ -546,7 +546,7 @@ func isEmpty(v reflect.Value) bool {
 	case reflect.Slice:
 		return val.Len() == 0
 	case reflect.String:
-		return len(strings.TrimSpace(val.String())) == 0
+		return len(strings.TrimSpace(val.String())) == 0 || strings.ToLower(val.String()) == "false"
 	}
 
 	return false

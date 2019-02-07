@@ -68,12 +68,10 @@ type Tag interface {
 	// Tags returns any child tags. It panics for tag types which cannot contain
 	// child tags (i.e. variable tags).
 	Tags() []Tag
-
-	Elems() []interface{}
-}
-
-type CommentElement struct {
-	Contents string
+	// Elements returns child elements. It panics for tag types which cannot contain child elements.
+	Elements() []interface{}
+	// Comments returns comments associated with this tag.
+	Comments() []string
 }
 
 type TextElement struct {
@@ -89,7 +87,8 @@ type SectionElement struct {
 	name      string
 	inverted  bool
 	startline int
-	Elms      []interface{}
+	elements  []interface{}
+	comments  []string
 }
 
 type PartialElement struct {
@@ -108,7 +107,7 @@ type Template struct {
 	elems    []interface{}
 	forceRaw bool
 	partial  PartialProvider
-	Comments []CommentElement
+	Comments []string
 }
 
 type parseError struct {
@@ -148,8 +147,12 @@ func (e *VarElement) Tags() []Tag {
 	panic("mustache: Tags on Variable type")
 }
 
-func (e *VarElement) Elems() []interface{} {
-	panic("mustache: Elems on Variable type")
+func (e *VarElement) Elements() []interface{} {
+	panic("mustache: Elements on Variable type")
+}
+
+func (e *VarElement) Comments() []string {
+	panic("mustache: Comments on Variable type")
 }
 
 func (e *SectionElement) Type() TagType {
@@ -164,11 +167,15 @@ func (e *SectionElement) Name() string {
 }
 
 func (e *SectionElement) Tags() []Tag {
-	return extractTags(e.Elms)
+	return extractTags(e.elements)
 }
 
-func (e *SectionElement) Elems() []interface{} {
-	return e.Elms
+func (e *SectionElement) Elements() []interface{} {
+	return e.elements
+}
+
+func (e *SectionElement) Comments() []string {
+	return e.comments
 }
 
 func (e *PartialElement) Type() TagType {
@@ -183,8 +190,12 @@ func (e *PartialElement) Tags() []Tag {
 	return nil
 }
 
-func (e *PartialElement) Elems() []interface{} {
-	panic("mustache: Elems on Partial type")
+func (e *PartialElement) Elements() []interface{} {
+	panic("mustache: Elements on Partial type")
+}
+
+func (e *PartialElement) Comments() []string {
+	panic("mustache: Comments on Partial type")
 }
 
 func (p parseError) Error() string {
@@ -351,7 +362,7 @@ func (tmpl *Template) parseSection(section *SectionElement) error {
 		}
 
 		// put text into an item
-		section.Elms = append(section.Elms, &TextElement{[]byte(text)})
+		section.elements = append(section.elements, &TextElement{[]byte(text)})
 
 		tagResult, err := tmpl.readTag(mayStandalone)
 		if err != nil {
@@ -359,23 +370,22 @@ func (tmpl *Template) parseSection(section *SectionElement) error {
 		}
 
 		if !tagResult.standalone {
-			section.Elms = append(section.Elms, &TextElement{[]byte(padding)})
+			section.elements = append(section.elements, &TextElement{[]byte(padding)})
 		}
 
 		tag := tagResult.tag
 		switch tag[0] {
 		case '!':
-			ce := CommentElement{Contents: strings.TrimSpace(tag[1:])}
-			tmpl.Comments = append(tmpl.Comments, ce)
+			section.comments = append(section.comments, strings.TrimSpace(tag[1:]))
 			break
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
-			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}}
+			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}, []string{}}
 			err := tmpl.parseSection(&se)
 			if err != nil {
 				return err
 			}
-			section.Elms = append(section.Elms, &se)
+			section.elements = append(section.elements, &se)
 		case '/':
 			name := strings.TrimSpace(tag[1:])
 			if name != section.name {
@@ -388,7 +398,7 @@ func (tmpl *Template) parseSection(section *SectionElement) error {
 			if err != nil {
 				return err
 			}
-			section.Elms = append(section.Elms, partial)
+			section.elements = append(section.elements, partial)
 		case '=':
 			if tag[len(tag)-1] != '=' {
 				return parseError{tmpl.curline, "Invalid meta tag"}
@@ -403,13 +413,13 @@ func (tmpl *Template) parseSection(section *SectionElement) error {
 			if tag[len(tag)-1] == '}' {
 				//use a raw tag
 				name := strings.TrimSpace(tag[1 : len(tag)-1])
-				section.Elms = append(section.Elms, &VarElement{name, true})
+				section.elements = append(section.elements, &VarElement{name, true})
 			}
 		case '&':
 			name := strings.TrimSpace(tag[1:])
-			section.Elms = append(section.Elms, &VarElement{name, true})
+			section.elements = append(section.elements, &VarElement{name, true})
 		default:
-			section.Elms = append(section.Elms, &VarElement{tag, tmpl.forceRaw})
+			section.elements = append(section.elements, &VarElement{tag, tmpl.forceRaw})
 		}
 	}
 }
@@ -442,12 +452,11 @@ func (tmpl *Template) parse() error {
 		tag := tagResult.tag
 		switch tag[0] {
 		case '!':
-			ce := CommentElement{Contents: strings.TrimSpace(tag[1:])}
-			tmpl.Comments = append(tmpl.Comments, ce)
+			tmpl.Comments = append(tmpl.Comments, strings.TrimSpace(tag[1:]))
 			break
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
-			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}}
+			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}, []string{}}
 			err := tmpl.parseSection(&se)
 			if err != nil {
 				return err
@@ -624,7 +633,7 @@ func renderSection(section *SectionElement, contextChain []interface{}, buf io.W
 	//by default we execute the section
 	for _, ctx := range contexts {
 		chain2[0] = ctx
-		for _, elem := range section.Elms {
+		for _, elem := range section.elements {
 			renderElement(elem, chain2, buf)
 		}
 	}
@@ -749,7 +758,7 @@ func ParseStringPartials(data string, partials PartialProvider) (*Template, erro
 }
 
 func ParseStringPartialsRaw(data string, partials PartialProvider, forceRaw bool) (*Template, error) {
-	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, []CommentElement{}}
+	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, []string{}}
 	err := tmpl.parse()
 
 	if err != nil {
@@ -785,7 +794,7 @@ func ParseFilePartialsRaw(filename string, forceRaw bool, partials PartialProvid
 		return nil, err
 	}
 
-	tmpl := Template{string(data), "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, []CommentElement{}}
+	tmpl := Template{string(data), "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, []string{}}
 	err = tmpl.parse()
 
 	if err != nil {

@@ -380,7 +380,7 @@ func (tmpl *Template) parseSection(section *SectionElement) error {
 			break
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
-			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}, []string{}}
+			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}, nil}
 			err := tmpl.parseSection(&se)
 			if err != nil {
 				return err
@@ -456,7 +456,7 @@ func (tmpl *Template) parse() error {
 			break
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
-			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}, []string{}}
+			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}, nil}
 			err := tmpl.parseSection(&se)
 			if err != nil {
 				return err
@@ -758,7 +758,7 @@ func ParseStringPartials(data string, partials PartialProvider) (*Template, erro
 }
 
 func ParseStringPartialsRaw(data string, partials PartialProvider, forceRaw bool) (*Template, error) {
-	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, []string{}}
+	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, nil}
 	err := tmpl.parse()
 
 	if err != nil {
@@ -794,7 +794,7 @@ func ParseFilePartialsRaw(filename string, forceRaw bool, partials PartialProvid
 		return nil, err
 	}
 
-	tmpl := Template{string(data), "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, []string{}}
+	tmpl := Template{string(data), "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials, nil}
 	err = tmpl.parse()
 
 	if err != nil {

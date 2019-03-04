@@ -70,8 +70,6 @@ type Tag interface {
 	Tags() []Tag
 	// Elements returns child elements. It panics for tag types which cannot contain child elements.
 	Elements() []interface{}
-	// Comments returns comments associated with this tag.
-	Comments() []string
 }
 
 type TextElement struct {
@@ -88,7 +86,6 @@ type SectionElement struct {
 	inverted  bool
 	startline int
 	elements  []interface{}
-	comments  []string
 }
 
 type PartialElement struct {
@@ -151,10 +148,6 @@ func (e *VarElement) Elements() []interface{} {
 	panic("mustache: Elements on Variable type")
 }
 
-func (e *VarElement) Comments() []string {
-	panic("mustache: Comments on Variable type")
-}
-
 func (e *SectionElement) Type() TagType {
 	if e.inverted {
 		return InvertedSection
@@ -174,10 +167,6 @@ func (e *SectionElement) Elements() []interface{} {
 	return e.elements
 }
 
-func (e *SectionElement) Comments() []string {
-	return e.comments
-}
-
 func (e *PartialElement) Type() TagType {
 	return Partial
 }
@@ -192,10 +181,6 @@ func (e *PartialElement) Tags() []Tag {
 
 func (e *PartialElement) Elements() []interface{} {
 	panic("mustache: Elements on Partial type")
-}
-
-func (e *PartialElement) Comments() []string {
-	panic("mustache: Comments on Partial type")
 }
 
 func (p parseError) Error() string {
@@ -376,11 +361,11 @@ func (tmpl *Template) parseSection(section *SectionElement) error {
 		tag := tagResult.tag
 		switch tag[0] {
 		case '!':
-			section.comments = append(section.comments, strings.TrimSpace(tag[1:]))
+			tmpl.Comments = append(tmpl.Comments, strings.TrimSpace(tag[1:]))
 			break
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
-			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}, nil}
+			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}}
 			err := tmpl.parseSection(&se)
 			if err != nil {
 				return err
@@ -456,7 +441,7 @@ func (tmpl *Template) parse() error {
 			break
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
-			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}, nil}
+			se := SectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}}
 			err := tmpl.parseSection(&se)
 			if err != nil {
 				return err

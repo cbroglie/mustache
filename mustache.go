@@ -514,6 +514,18 @@ Outer:
 					return ret, nil
 				}
 				continue Outer
+			case reflect.Array:
+				ret := av[name]
+				if ret.IsValid() {
+					return ret, nil
+				}
+				continue Outer
+			case reflect.Slice:
+				ret := av[name]
+				if ret.IsValid() {
+					return ret, nil
+				}
+				continue Outer
 			case reflect.Map:
 				ret := av.MapIndex(reflect.ValueOf(name))
 				if ret.IsValid() {

@@ -544,15 +544,13 @@ func isEmpty(v reflect.Value) bool {
 		return true
 	}
 	switch val := valueInd; val.Kind() {
-	case reflect.Bool:
-		return !val.Bool()
-	case reflect.Slice:
+	case reflect.Array, reflect.Slice:
 		return val.Len() == 0
 	case reflect.String:
 		return len(strings.TrimSpace(val.String())) == 0
+	default:
+		return valueInd.IsZero()
 	}
-
-	return false
 }
 
 func indirect(v reflect.Value) reflect.Value {
@@ -630,7 +628,9 @@ func renderSection(section *sectionElement, contextChain []interface{}, buf io.W
 	for _, ctx := range contexts {
 		chain2[0] = ctx
 		for _, elem := range section.elems {
-			renderElement(elem, chain2, buf)
+			if err := renderElement(elem, chain2, buf); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -672,7 +672,8 @@ func renderSectionElements(elements []interface{}, contextChain []interface{}, b
 func renderElement(element interface{}, contextChain []interface{}, buf io.Writer) error {
 	switch elem := element.(type) {
 	case *textElement:
-		buf.Write(elem.text)
+		_, err := buf.Write(elem.text)
+		return err
 	case *varElement:
 		defer func() {
 			if r := recover(); r != nil {
@@ -769,6 +770,9 @@ func ParseString(data string) (*Template, error) {
 	return ParseStringRaw(data, false)
 }
 
+// ParseStringRaw compiles a mustache template string. The resulting output can
+// be used to efficiently render the template multiple times with different data
+// sources.
 func ParseStringRaw(data string, forceRaw bool) (*Template, error) {
 	cwd := os.Getenv("CWD")
 	partials := &FileProvider{
@@ -786,6 +790,10 @@ func ParseStringPartials(data string, partials PartialProvider) (*Template, erro
 	return ParseStringPartialsRaw(data, partials, false)
 }
 
+// ParseStringPartialsRaw compiles a mustache template string, retrieving any
+// required partials from the given provider. The resulting output can be used
+// to efficiently render the template multiple times with different data
+// sources.
 func ParseStringPartialsRaw(data string, partials PartialProvider, forceRaw bool) (*Template, error) {
 	tmpl := Template{data, "{{", "}}", 0, 1, []interface{}{}, forceRaw, partials}
 	err := tmpl.parse()
@@ -817,6 +825,10 @@ func ParseFilePartials(filename string, partials PartialProvider) (*Template, er
 	return ParseFilePartialsRaw(filename, false, partials)
 }
 
+// ParseFilePartialsRaw loads a mustache template string from a file, retrieving
+// any required partials from the given provider, and compiles it. The resulting
+// output can be used to efficiently render the template multiple times with
+// different data sources.
 func ParseFilePartialsRaw(filename string, forceRaw bool, partials PartialProvider) (*Template, error) {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -839,6 +851,9 @@ func Render(data string, context ...interface{}) (string, error) {
 	return RenderRaw(data, false, context...)
 }
 
+// RenderRaw compiles a mustache template string and uses the the given data
+// source - generally a map or struct - to render the template and return the
+// output.
 func RenderRaw(data string, forceRaw bool, context ...interface{}) (string, error) {
 	return RenderPartialsRaw(data, nil, forceRaw, context...)
 }
@@ -850,6 +865,9 @@ func RenderPartials(data string, partials PartialProvider, context ...interface{
 	return RenderPartialsRaw(data, partials, false, context...)
 }
 
+// RenderPartialsRaw compiles a mustache template string and uses the the given
+// partial provider and data source - generally a map or struct - to render the
+// template and return the output.
 func RenderPartialsRaw(data string, partials PartialProvider, forceRaw bool, context ...interface{}) (string, error) {
 	var tmpl *Template
 	var err error
@@ -871,6 +889,9 @@ func RenderInLayout(data string, layoutData string, context ...interface{}) (str
 	return RenderInLayoutPartials(data, layoutData, nil, context...)
 }
 
+// RenderInLayoutPartials compiles a mustache template string and layout
+// "wrapper" and uses the given data source - generally a map or struct - to
+// render the compiled templates and return the output.
 func RenderInLayoutPartials(data string, layoutData string, partials PartialProvider, context ...interface{}) (string, error) {
 	var layoutTmpl, tmpl *Template
 	var err error

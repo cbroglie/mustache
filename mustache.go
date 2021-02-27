@@ -261,6 +261,8 @@ func (tmpl *Template) readTag(mayStandalone bool) (*tagReadingResult, error) {
 	var err error
 	if tmpl.p < len(tmpl.data) && tmpl.data[tmpl.p] == '{' {
 		text, err = tmpl.readString("}" + tmpl.ctag)
+	} else if tmpl.p < len(tmpl.data) && tmpl.data[tmpl.p] == '|' {
+		text, err = tmpl.readString("|" + tmpl.ctag)
 	} else {
 		text, err = tmpl.readString(tmpl.ctag)
 	}
@@ -534,6 +536,34 @@ Outer:
 	return reflect.Value{}, fmt.Errorf("Missing variable %q", name)
 }
 
+func lookup_r(contextChain []interface{}, name string, allowMissing bool) (reflect.Value, error) {
+	var val reflect.Value
+	var err error
+	if name[0] == '|' {
+		// render recursively
+		rname := strings.Trim(name, "|")
+		recn := 1 + strings.Count(name, "|") / 2
+		i := 0
+		for ; i < recn; i++ {
+			val, err = lookup(contextChain, rname, allowMissing)
+			if err != nil {
+				break
+			}
+			if val.IsValid() {
+				rname = fmt.Sprint(val.Interface())
+			} else {
+				break
+			}
+		}
+		if i == recn {
+			err = nil
+		}
+	} else {
+		val, err = lookup(contextChain, name, allowMissing)
+	}
+	return val, err
+}
+
 func isEmpty(v reflect.Value) bool {
 	if !v.IsValid() || v.Interface() == nil {
 		return true
@@ -569,7 +599,7 @@ loop:
 }
 
 func renderSection(section *sectionElement, contextChain []interface{}, buf io.Writer) error {
-	value, err := lookup(contextChain, section.name, true)
+	value, err := lookup_r(contextChain, section.name, true)
 	if err != nil {
 		return err
 	}
@@ -680,7 +710,7 @@ func renderElement(element interface{}, contextChain []interface{}, buf io.Write
 				fmt.Printf("Panic while looking up %q: %s\n", elem.name, r)
 			}
 		}()
-		val, err := lookup(contextChain, elem.name, AllowMissingVariables)
+		val, err := lookup_r(contextChain, elem.name, AllowMissingVariables)
 		if err != nil {
 			return err
 		}

@@ -179,6 +179,9 @@ var tests = []Test{
 		"categories": {&Category{"a", "b"}},
 	}, "a - b", nil},
 
+	//recursive lookups
+	{`{{#rows}}{{.}}:{{|.|}};{{/rows}}`, map[string]interface{}{"rows": []string{"a", "b", "c"}, "a":"foo", "b":"bar", "c":"baz"}, "a:foo;b:bar;c:baz;", nil},
+
 	//dotted names(dot notation)
 	{`"{{person.name}}" == "{{#person}}{{name}}{{/person}}"`, map[string]interface{}{"person": map[string]string{"name": "Joe"}}, `"Joe" == "Joe"`, nil},
 	{`"{{{person.name}}}" == "{{#person}}{{{name}}}{{/person}}"`, map[string]interface{}{"person": map[string]string{"name": "Joe"}}, `"Joe" == "Joe"`, nil},

@@ -2,6 +2,7 @@ package mustache
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -137,7 +138,18 @@ var enabledTests = map[string]map[string]bool{
 		"Standalone Without Newline":       true,
 		"Padding":                          true,
 	},
-	"~lambdas.json": nil, // not implemented
+	"~lambdas.json": map[string]bool{
+		"Interpolation":                        false,
+		"Interpolation - Expansion":            false,
+		"Interpolation - Alternate Delimiters": false,
+		"Interpolation - Multiple Calls":       false,
+		"Escaping":                             false,
+		"Section":                              true,
+		"Section - Expansion":                  true,
+		"Section - Alternate Delimiters":       false,
+		"Section - Multiple Calls":             true,
+		"Inverted Section":                     false,
+	},
 }
 
 type specTest struct {
@@ -193,6 +205,24 @@ func TestSpec(t *testing.T) {
 	}
 }
 
+type LambdaFn func(text string, render RenderFn) (string, error)
+
+var lambdas = map[string]LambdaFn{
+	"Section": func(text string, render RenderFn) (string, error) {
+		if text == "{{x}}" {
+			return "yes", nil
+		} else {
+			return "no", nil
+		}
+	},
+	"Section - Expansion": func(text string, render RenderFn) (string, error) {
+		return render(fmt.Sprintf("%s{{planet}}%s", text, text))
+	},
+	"Section - Multiple Calls": func(text string, render RenderFn) (string, error) {
+		return render(fmt.Sprintf("__%s__", text))
+	},
+}
+
 func runTest(t *testing.T, file string, test *specTest) {
 	enabled, ok := enabledTests[file][test.Name]
 	if !ok {
@@ -203,6 +233,10 @@ func runTest(t *testing.T, file string, test *specTest) {
 		return
 	}
 
+	if file == "~lambdas.json" {
+		lambda := lambdas[test.Name]
+		((test.Data.(map[string]interface{}))["lambda"]) = lambda
+	}
 	var out string
 	var err error
 	if len(test.Partials) > 0 {

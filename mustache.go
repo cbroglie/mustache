@@ -374,15 +374,7 @@ func (tmpl *Template) parseSection(section *sectionElement) error {
 			}
 			section.elems = append(section.elems, partial)
 		case '=':
-			if tag[len(tag)-1] != '=' {
-				return newError(tmpl.curline, ErrInvalidMetaTag)
-			}
-			tag = strings.TrimSpace(tag[1 : len(tag)-1])
-			newtags := strings.SplitN(tag, " ", 2)
-			if len(newtags) == 2 {
-				tmpl.otag = newtags[0]
-				tmpl.ctag = newtags[1]
-			}
+			tmpl.parseCustomDelimiter(tag)
 		case '{':
 			if tag[len(tag)-1] == '}' {
 				//use a raw tag
@@ -445,15 +437,7 @@ func (tmpl *Template) parse() error {
 			}
 			tmpl.elems = append(tmpl.elems, partial)
 		case '=':
-			if tag[len(tag)-1] != '=' {
-				return newError(tmpl.curline, ErrInvalidMetaTag)
-			}
-			tag = strings.TrimSpace(tag[1 : len(tag)-1])
-			newtags := strings.SplitN(tag, " ", 2)
-			if len(newtags) == 2 {
-				tmpl.otag = newtags[0]
-				tmpl.ctag = newtags[1]
-			}
+			tmpl.parseCustomDelimiter(tag)
 		case '{':
 			//use a raw tag
 			if tag[len(tag)-1] == '}' {
@@ -466,6 +450,21 @@ func (tmpl *Template) parse() error {
 		default:
 			tmpl.elems = append(tmpl.elems, &varElement{tag, tmpl.forceRaw})
 		}
+	}
+}
+
+func (tmpl *Template) parseCustomDelimiter(tag string) {
+	if len(tag) < 3 || tag[len(tag)-1] != '=' {
+		tmpl.elems = append(tmpl.elems, &varElement{tag, tmpl.forceRaw})
+		return
+	}
+	trimmedtag := strings.TrimSpace(tag[1 : len(tag)-1])
+	newtags := strings.SplitN(trimmedtag, " ", 2)
+	if len(newtags) == 2 {
+		tmpl.otag = newtags[0]
+		tmpl.ctag = newtags[1]
+	} else {
+		tmpl.elems = append(tmpl.elems, &varElement{tag, tmpl.forceRaw})
 	}
 }
 

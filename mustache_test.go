@@ -94,6 +94,12 @@ var tests = []Test{
 	{`hello {{! comment }}world`, map[string]string{}, "hello world", nil},
 	{`{{ a }}{{=<% %>=}}<%b %><%={{ }}=%>{{ c }}`, map[string]string{"a": "a", "b": "b", "c": "c"}, "abc", nil},
 	{`{{ a }}{{= <% %> =}}<%b %><%= {{ }}=%>{{c}}`, map[string]string{"a": "a", "b": "b", "c": "c"}, "abc", nil},
+	// variables that look like malformed custom delimiter tags
+	{`{{=}}`, map[string]string{"=": "a"}, "a", nil},
+	{`{{= %}}`, map[string]string{"= %": "a"}, "a", nil},
+	{`{{==}}`, map[string]string{"==": "a"}, "a", nil},
+	{`{{= =}}`, map[string]string{"= =": "a"}, "a", nil},
+	{`{{#A}}{{=}}{{/A}}`, map[string]string{"=": "a"}, "a", nil},
 
 	//section tests
 	{`{{#A}}{{B}}{{/A}}`, Data{true, "hello"}, "hello", nil},

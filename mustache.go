@@ -506,6 +506,26 @@ Outer:
 				return v, nil
 			}
 			switch av := v; av.Kind() {
+			case reflect.Func:
+				typ := av.Type()
+				// Ensure the function takes one argument and it's a string.
+				if typ.NumIn() != 1 || typ.In(0).Kind() != reflect.String {
+					continue Outer
+				}
+				out := av.Call([]reflect.Value{reflect.ValueOf(name)})
+
+				// We can have either 1 or 2 return values.
+				if len(out) < 1 || len(out) > 2 {
+					continue Outer
+				}
+
+				// If we have 2 return values, the second must be a bool and
+				// represents if the variable exists or not.
+				if len(out) == 2 && (out[1].Kind() != reflect.Bool || !out[1].Bool()) {
+					continue Outer
+				}
+
+				return out[0], nil
 			case reflect.Ptr:
 				v = av.Elem()
 			case reflect.Interface:

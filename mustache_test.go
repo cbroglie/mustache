@@ -356,6 +356,68 @@ func TestMultiContext(t *testing.T) {
 	}
 }
 
+func TestDynamic(t *testing.T) {
+	tmpl := `{{hello}}{{something}}`
+	lookupFunc := func(name string) (interface{}, bool) {
+		if name == "hello" {
+			return "world", true
+		}
+
+		return nil, false
+	}
+
+	output, err := Render(tmpl, lookupFunc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect := "world"
+	if output != expect {
+		t.Fatalf("TestLambda expected %q got %q", expect, output)
+	}
+}
+
+func TestSimpleDynamic(t *testing.T) {
+	tmpl := `{{hello}}{{something}}`
+	lookupFunc := func(name string) string {
+		if name == "hello" {
+			return "world"
+		}
+
+		return ""
+	}
+
+	output, err := Render(tmpl, lookupFunc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect := "world"
+	if output != expect {
+		t.Fatalf("TestLambda expected %q got %q", expect, output)
+	}
+}
+
+func TestComplexDynamic(t *testing.T) {
+	tmpl := `{{hello.world}}{{something}}`
+	lookupFunc := func(name string) interface{} {
+		if name == "hello" {
+			return map[string]string{
+				"world": "some value",
+			}
+		}
+
+		return ""
+	}
+
+	output, err := Render(tmpl, lookupFunc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expect := "some value"
+	if output != expect {
+		t.Fatalf("TestLambda expected %q got %q", expect, output)
+	}
+}
+
 func TestLambda(t *testing.T) {
 	tmpl := `{{#lambda}}Hello {{name}}. {{#sub}}{{.}} {{/sub}}{{^negsub}}nothing{{/negsub}}{{/lambda}}`
 	data := map[string]interface{}{

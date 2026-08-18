@@ -47,6 +47,13 @@ const (
 	SkipWhitespaceTagTypes = "#^/<>=!"
 )
 
+// maxNestingDepth bounds how deeply sections may be nested. Parsing recurses
+// once per open section tag, so without a limit a template consisting solely of
+// nested section openers (e.g. many "{{#a}}") would recurse until the goroutine
+// stack is exhausted, aborting the process with an unrecoverable stack
+// overflow. The limit is far larger than any legitimate template requires.
+const maxNestingDepth = 10000
+
 func (t TagType) String() string {
 	if int(t) < len(tagNames) {
 		return tagNames[t]
@@ -324,7 +331,10 @@ func (tmpl *Template) parsePartial(name, indent string) (*partialElement, error)
 	}, nil
 }
 
-func (tmpl *Template) parseSection(section *sectionElement) error {
+func (tmpl *Template) parseSection(section *sectionElement, depth int) error {
+	if depth > maxNestingDepth {
+		return newErrorWithReason(tmpl.curline, ErrNestingTooDeep, section.name)
+	}
 	for {
 		textResult, err := tmpl.readText()
 		text := textResult.text
@@ -355,7 +365,7 @@ func (tmpl *Template) parseSection(section *sectionElement) error {
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
 			se := sectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}}
-			err := tmpl.parseSection(&se)
+			err := tmpl.parseSection(&se, depth+1)
 			if err != nil {
 				return err
 			}
@@ -422,7 +432,7 @@ func (tmpl *Template) parse() error {
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
 			se := sectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}}
-			err := tmpl.parseSection(&se)
+			err := tmpl.parseSection(&se, 1)
 			if err != nil {
 				return err
 			}

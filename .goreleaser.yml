@@ -1,6 +1,8 @@
+version: 2
+
 env:
-  - GO111MODULE=on
   - CGO_ENABLED=0
+
 builds:
   - main: ./cmd/mustache
     binary: mustache

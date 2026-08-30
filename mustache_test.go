@@ -511,10 +511,10 @@ func TestParseError(t *testing.T) {
 			var parseError ParseError
 			if errors.As(err, &parseError) {
 				if parseError.Line != test.errLine || parseError.Code != test.errCode || parseError.Reason != test.errReason {
-					t.Errorf("%q expected ParseError (line %q code %q reason %q) but got (line %q code %q reason %q)", test.tmpl, test.errLine, test.errCode, test.errReason, parseError.Line, parseError.Code, parseError.Reason)
+					t.Errorf("%q expected ParseError (line %d code %q reason %q) but got (line %d code %q reason %q)", test.tmpl, test.errLine, test.errCode, test.errReason, parseError.Line, parseError.Code, parseError.Reason)
 				}
 			} else {
-				t.Errorf("%q expected ParseError (line %q code %q reason %q) but got %q", test.tmpl, test.errLine, test.errCode, test.errReason, test.err.Error())
+				t.Errorf("%q expected ParseError (line %d code %q reason %q) but got %q", test.tmpl, test.errLine, test.errCode, test.errReason, test.err.Error())
 			}
 		} else {
 			t.Errorf("%q expected error %q but got %q", test.tmpl, test.err.Error(), output)

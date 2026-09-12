@@ -742,3 +742,39 @@ func TestCustomEscape(t *testing.T) {
 		t.Errorf("expected %s, got %v", expected, value)
 	}
 }
+
+type failingWriter struct {
+	err    error
+	writes int
+}
+
+func (w *failingWriter) Write(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	w.writes++
+	return 0, w.err
+}
+
+func TestFRenderPropagatesWriterErrors(t *testing.T) {
+	failure := errors.New("output failed")
+	context := map[string]interface{}{
+		"value":  "<value>",
+		"lambda": LambdaFunc(func(string, RenderFunc) (string, error) { return "rendered", nil }),
+	}
+	for _, input := range []string{"text", "{{value}}", "{{{value}}}", "{{&value}}", "{{#lambda}}body{{/lambda}}", "{{value}}tail"} {
+		t.Run(input, func(t *testing.T) {
+			tmpl, err := ParseString(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			out := &failingWriter{err: failure}
+			if err := tmpl.FRender(out, context); !errors.Is(err, failure) {
+				t.Errorf("got %v, want %v", err, failure)
+			}
+			if out.writes != 1 {
+				t.Errorf("continued writing after failure: %d writes", out.writes)
+			}
+		})
+	}
+}

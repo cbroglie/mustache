@@ -625,8 +625,8 @@ func (tmpl *Template) renderSection(section *sectionElement, contextChain []inte
 			if !res[1].IsNil() {
 				return fmt.Errorf("lambda %q: %w", section.name, res[1].Interface().(error))
 			}
-			fmt.Fprint(buf, res[0].String())
-			return nil
+			_, err = fmt.Fprint(buf, res[0].String())
+			return err
 		default:
 			// Spec: Non-false sections have their value at the top of context,
 			// accessible as {{.}} or through the parent context. This gives
@@ -706,11 +706,12 @@ func (tmpl *Template) renderElement(element interface{}, contextChain []interfac
 
 		if val.IsValid() {
 			if elem.raw {
-				fmt.Fprint(buf, val.Interface())
+				_, err = fmt.Fprint(buf, val.Interface())
 			} else {
 				s := fmt.Sprint(val.Interface())
-				_, _ = buf.Write([]byte(tmpl.escape(s)))
+				_, err = buf.Write([]byte(tmpl.escape(s)))
 			}
+			return err
 		}
 	case *sectionElement:
 		if err := tmpl.renderSection(elem, contextChain, buf); err != nil {

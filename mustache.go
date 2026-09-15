@@ -32,6 +32,10 @@ type EscapeFunc func(text string) string
 // represents. The zero TagType is not a valid type.
 type TagType uint
 
+type CustomLookup interface {
+	Lookup(name string) (reflect.Value, error)
+}
+
 // Defines representing the possible Tag types
 const (
 	Invalid TagType = iota
@@ -187,7 +191,7 @@ func (e *partialElement) Tags() []Tag {
 func (tmpl *Template) readString(s string) (string, error) {
 	newlines := 0
 	for i := tmpl.p; ; i++ {
-		//are we at the end of the string?
+		// are we at the end of the string?
 		if i+len(s) > len(tmpl.data) {
 			return tmpl.data[tmpl.p:], io.EOF
 		}
@@ -275,13 +279,13 @@ func (tmpl *Template) readTag(mayStandalone bool) (*tagReadingResult, error) {
 	}
 
 	if err == io.EOF {
-		//put the remaining text in a block
+		// put the remaining text in a block
 		return nil, newError(tmpl.curline, ErrUnmatchedOpenTag)
 	}
 
 	text = text[:len(text)-len(tmpl.ctag)]
 
-	//trim the close tag off the text
+	// trim the close tag off the text
 	tag := strings.TrimSpace(text)
 	if len(tag) == 0 {
 		return nil, newError(tmpl.curline, ErrEmptyTag)
@@ -342,7 +346,7 @@ func (tmpl *Template) parseSection(section *sectionElement, depth int) error {
 		mayStandalone := textResult.mayStandalone
 
 		if err == io.EOF {
-			//put the remaining text in a block
+			// put the remaining text in a block
 			return newErrorWithReason(section.startline, ErrSectionNoClosingTag, section.name)
 		}
 
@@ -361,7 +365,7 @@ func (tmpl *Template) parseSection(section *sectionElement, depth int) error {
 		tag := tagResult.tag
 		switch tag[0] {
 		case '!':
-			//ignore comment
+			// ignore comment
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
 			se := sectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}}
@@ -387,7 +391,7 @@ func (tmpl *Template) parseSection(section *sectionElement, depth int) error {
 			tmpl.parseCustomDelimiter(tag)
 		case '{':
 			if tag[len(tag)-1] == '}' {
-				//use a raw tag
+				// use a raw tag
 				name := strings.TrimSpace(tag[1 : len(tag)-1])
 				section.elems = append(section.elems, &varElement{name, true})
 			}
@@ -408,7 +412,7 @@ func (tmpl *Template) parse() error {
 		mayStandalone := textResult.mayStandalone
 
 		if err == io.EOF {
-			//put the remaining text in a block
+			// put the remaining text in a block
 			tmpl.elems = append(tmpl.elems, &textElement{[]byte(text)})
 			return nil
 		}
@@ -428,7 +432,7 @@ func (tmpl *Template) parse() error {
 		tag := tagResult.tag
 		switch tag[0] {
 		case '!':
-			//ignore comment
+			// ignore comment
 		case '#', '^':
 			name := strings.TrimSpace(tag[1:])
 			se := sectionElement{name, tag[0] == '^', tmpl.curline, []interface{}{}}
@@ -449,7 +453,7 @@ func (tmpl *Template) parse() error {
 		case '=':
 			tmpl.parseCustomDelimiter(tag)
 		case '{':
-			//use a raw tag
+			// use a raw tag
 			if tag[len(tag)-1] == '}' {
 				name := strings.TrimSpace(tag[1 : len(tag)-1])
 				tmpl.elems = append(tmpl.elems, &varElement{name, true})
@@ -501,6 +505,15 @@ func lookup(contextChain []interface{}, name string, allowMissing bool) (reflect
 Outer:
 	for _, ctx := range contextChain {
 		v := ctx.(reflect.Value)
+		if custom, ok := v.Interface().(CustomLookup); ok {
+			v, err := custom.Lookup(name)
+			if err != nil {
+				return reflect.Value{}, err
+			}
+			if v.IsValid() {
+				return v, nil
+			}
+		}
 		for v.IsValid() {
 			typ := v.Type()
 			if n := v.Type().NumMethod(); n > 0 {
@@ -639,7 +652,7 @@ func (tmpl *Template) renderSection(section *sectionElement, contextChain []inte
 
 	chain2 := make([]interface{}, len(contextChain)+1)
 	copy(chain2[1:], contextChain)
-	//by default we execute the section
+	// by default we execute the section
 	for _, ctx := range contexts {
 		chain2[0] = ctx
 		for _, elem := range section.elems {

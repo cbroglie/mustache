@@ -339,6 +339,31 @@ func TestPartial(t *testing.T) {
 	    }
 	}
 */
+func TestStandaloneTagAtEOFWithTrailingWhitespace(t *testing.T) {
+	partials := &StaticProvider{Partials: map[string]string{"p": "P"}}
+	context := map[string]interface{}{"x": true}
+	tests := []struct {
+		name   string
+		tmpl   string
+		expect string
+	}{
+		{"comment", "a\n  {{! comment }}  ", "a\n"},
+		{"section", "a\n  {{#x}}\n  b\n  {{/x}}  ", "a\n  b\n"},
+		{"partial", "a\n  {{> p }}  ", "a\n  P"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			output, err := RenderPartials(test.tmpl, partials, context)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if output != test.expect {
+				t.Errorf("expected %q got %q", test.expect, output)
+			}
+		})
+	}
+}
+
 func TestMultiContext(t *testing.T) {
 	output, err := Render(`{{hello}} {{World}}`, map[string]string{"hello": "hello"}, struct{ World string }{"world"})
 	if err != nil {

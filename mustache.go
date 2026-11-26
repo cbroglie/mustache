@@ -287,7 +287,7 @@ func (tmpl *Template) readTag(mayStandalone bool) (*tagReadingResult, error) {
 		return nil, newError(tmpl.curline, ErrEmptyTag)
 	}
 
-	eow := tmpl.p
+	eow := len(tmpl.data)
 	for i := tmpl.p; i < len(tmpl.data); i++ {
 		if !(tmpl.data[i] == ' ' || tmpl.data[i] == '\t') {
 			eow = i
